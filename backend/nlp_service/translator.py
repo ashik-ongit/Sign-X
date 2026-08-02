@@ -1,5 +1,4 @@
 """
-GUY 2: NLP & SIGN GLOSS TRANSLATOR (PHASE 1)
 Folder: backend/nlp_service/
 
 Takes raw text and returns a hardcoded Sign Language Gloss sequence,
