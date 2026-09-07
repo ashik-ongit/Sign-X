@@ -7,41 +7,51 @@ export async function POST(request: Request) {
     const rawText = body.raw_text;
     const glossSequence = body.gloss_sequence;
 
-    if (typeof rawText !== "string" || !Array.isArray(glossSequence)) {
+    if (
+      typeof rawText !== "string" ||
+      !Array.isArray(glossSequence)
+    ) {
       return Response.json(
         {
           status: "error",
-          message: "raw_text and gloss_sequence are required"
+          message:
+            "raw_text and gloss_sequence are required",
         },
         { status: 400 }
       );
     }
 
-    const frames = glossSequence.map((gloss: string) => {
-      const pose = getPose(gloss);
+    const frames: any[] = [];
 
-      return {
-        gloss: gloss.toUpperCase(),
-        duration: pose?.duration ?? 500,
-        boneRotations: pose?.bones ?? {},
-        morphTargetInfluences: pose?.morphs ?? {}
-      };
-    });
+    for (const gloss of glossSequence) {
+      const poses = getPose(gloss);
+
+      if (!poses.length) continue;
+
+      poses.forEach((p) => {
+        frames.push({
+          gloss: gloss.toUpperCase(),
+          duration: p.duration,
+          boneRotations: p.bones,
+          morphTargetInfluences: p.morphs,
+        });
+      });
+    }
 
     return Response.json({
       status: "success",
       raw_text: rawText,
       gloss_sequence: glossSequence,
       animation_data: {
-        rig_type: "CharacterCreator_CC_Base",
-        frames
-      }
+        rig_type: "Mixamo",
+        frames,
+      },
     });
   } catch {
     return Response.json(
       {
         status: "error",
-        message: "Invalid JSON request"
+        message: "Invalid JSON request",
       },
       { status: 400 }
     );

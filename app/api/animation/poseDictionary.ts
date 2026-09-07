@@ -10,115 +10,194 @@ export type Pose = {
   morphs: Record<string, number>;
 };
 
-export const poseDictionary: Record<string, Pose> = {
-  HELLO: {
-    duration: 3000,
+const r = (x = 0, y = 0, z = 0): Rotation => ({
+  x,
+  y,
+  z,
+});
 
-    bones: {
-      // Right upper arm:
-      // negative X = raises arm for this GLB
-      mixamorigRightArm: {
-        x: -0.1745,
-        y: 0,
-        z: 0,
-      },
+const p = (
+  duration: number,
+  bones: Record<string, Rotation>
+): Pose => ({
+  duration,
+  bones,
+  morphs: {},
+});
 
-      // Start with zero elbow rotation.
-      mixamorigRightForeArm: {
-        x: 0,
-        y: 0,
-        z: 0,
-      },
+export const poseDictionary: Record<string, Pose[]> = {
+  HELLO: [
+    p(1000, {
+      mixamorigRightArm: r(-0.35),
+      mixamorigRightForeArm: r(-0.35),
+      mixamorigRightHand: r(0, 0.1),
+    }),
+    p(1200, {
+      mixamorigRightArm: r(-0.65),
+      mixamorigRightForeArm: r(-0.65),
+      mixamorigRightHand: r(0, 0.25),
+    }),
+    p(1400, {
+      mixamorigRightArm: r(-0.45, 0, -0.12),
+      mixamorigRightForeArm: r(-0.4),
+      mixamorigRightHand: r(0, 0.45),
+    }),
+  ],
 
-      mixamorigRightHand: {
-        x: 0,
-        y: 0,
-        z: 0,
-      },
-    },
+  WELCOME: [
+    p(1000, {
+      mixamorigRightArm: r(0, 0, 0.00),
+      mixamorigRightForeArm: r(-0.15, 0, 0),
+      mixamorigRightHand: r(0, 0, 0),
+    }),
 
-    morphs: {},
-  },
+    p(1200, {
+      mixamorigRightArm: r(0, 0, 0.55),
+      mixamorigRightForeArm: r(-0.65, 0, 0),
+      mixamorigRightHand: r(0.1, 0.1, 0),
+    }),
 
-  WELCOME: {
-    duration: 3000,
+    p(1400, {
+      mixamorigRightArm: r(0, 0, 0.85),
+      mixamorigRightForeArm: r(-0.75, 0, 0),
+      mixamorigRightHand: r(0.1, 0.3, 0),
+    }),
 
-    bones: {
-      mixamorigRightArm: {
-        x: 0,
-        y: 0,
-        z: 0,
-      },
+    p(1000, {
+      mixamorigRightArm: r(0, 0, 0.65),
+      mixamorigRightForeArm: r(-0.65, 0, 0),
+      mixamorigRightHand: r(0, 0.2, 0),
+    }),
+  ],
 
-      mixamorigRightForeArm: {
-        x: 0,
-        y: 0,
-        z: 0,
-      },
+  CHENNAI: [
+    p(1000, {
+      mixamorigRightArm: r(0, 0, 0.20),
+      mixamorigRightForeArm: r(-0.35, 0, 0),
+      mixamorigRightHand: r(0, 0, 0),
+    }),
 
-      mixamorigRightHand: {
-        x: 0,
-        y: 0,
-        z: 0,
-      },
-    },
+    p(1200, {
+      mixamorigRightArm: r(0, 0, 0.65),
+      mixamorigRightForeArm: r(-0.80, 0, 0),
+      mixamorigRightHand: r(0.15, 0.1, 0),
+    }),
 
-    morphs: {},
-  },
+    p(1300, {
+      mixamorigRightArm: r(0, 0, 0.95),
+      mixamorigRightForeArm: r(-0.60, 0.15, 0),
+      mixamorigRightHand: r(0, 0.5, 0),
+    }),
 
-  NEWS: {
-    duration: 3000,
+    p(1100, {
+      mixamorigRightArm: r(0, 0, 0.70),
+      mixamorigRightForeArm: r(-0.55, 0, 0),
+      mixamorigRightHand: r(0, 0.3, 0),
+    }),
+  ],
 
-    bones: {
-      mixamorigRightArm: {
-        x: 0.1745,
-        y: 0,
-        z: 0,
-      },
+  GOOD: [
+    p(1000, {
+      mixamorigRightArm: r(-0.3),
+      mixamorigRightForeArm: r(-0.55),
+      mixamorigRightHand: r(0.15),
+    }),
+    p(1300, {
+      mixamorigRightArm: r(-0.2),
+      mixamorigRightForeArm: r(-0.7),
+      mixamorigRightHand: r(0.4),
+    }),
+  ],
 
-      mixamorigRightForeArm: {
-        x: 0,
-        y: 0,
-        z: 0,
-      },
+  MORNING: [
+    p(900, {
+      mixamorigRightArm: r(-0.35, -0.1),
+      mixamorigRightForeArm: r(-0.55),
+      mixamorigRightHand: r(0, -0.2),
+    }),
+    p(1200, {
+      mixamorigRightArm: r(-0.65, -0.15),
+      mixamorigRightForeArm: r(-0.8),
+      mixamorigRightHand: r(0, -0.4),
+    }),
+    p(1300, {
+      mixamorigRightArm: r(-0.35, 0.1),
+      mixamorigRightForeArm: r(-0.5),
+      mixamorigRightHand: r(0, -0.15),
+    }),
+  ],
 
-      mixamorigRightHand: {
-        x: 0,
-        y: 0,
-        z: 0,
-      },
-    },
+  EVERYONE: [
+    p(900, {
+      mixamorigRightArm: r(-0.4, 0.2),
+      mixamorigRightForeArm: r(-0.35, 0.2),
+      mixamorigRightHand: r(0, 0.3),
+    }),
+    p(1200, {
+      mixamorigRightArm: r(-0.55, -0.2),
+      mixamorigRightForeArm: r(-0.55, 0.15),
+      mixamorigRightHand: r(0, -0.35),
+    }),
+  ],
 
-    morphs: {},
-  },
+  THANK_YOU: [
+    p(1000, {
+      mixamorigRightArm: r(-0.35),
+      mixamorigRightForeArm: r(-0.7),
+      mixamorigRightHand: r(-0.25, 0, 0.15),
+    }),
+    p(1500, {
+      mixamorigRightArm: r(-0.2),
+      mixamorigRightForeArm: r(-0.35),
+      mixamorigRightHand: r(-0.1, 0.35, 0.15),
+    }),
+    p(1100, {
+      mixamorigRightArm: r(-0.1),
+      mixamorigRightForeArm: r(-0.2),
+      mixamorigRightHand: r(0, 0.1),
+    }),
+  ],
 
-  LIVE: {
-    duration: 3000,
+  WATCH: [
+    p(900, {
+      mixamorigRightArm: r(-0.55, 0.1),
+      mixamorigRightForeArm: r(-0.5),
+      mixamorigRightHand: r(0, 0.3),
+    }),
+    p(1300, {
+      mixamorigRightArm: r(-0.8, 0.15),
+      mixamorigRightForeArm: r(-0.7),
+      mixamorigRightHand: r(0, 0.5),
+    }),
+  ],
 
-    bones: {
-      mixamorigRightArm: {
-        x: -0.0873,
-        y: 0,
-        z: 0,
-      },
+  GREAT: [
+    p(1000, {
+      mixamorigRightArm: r(-0.45),
+      mixamorigRightForeArm: r(-0.45),
+      mixamorigRightHand: r(0.2),
+    }),
+    p(1300, {
+      mixamorigRightArm: r(-0.65, -0.1),
+      mixamorigRightForeArm: r(-0.6),
+      mixamorigRightHand: r(0.4),
+    }),
+  ],
 
-      mixamorigRightForeArm: {
-        x: 0,
-        y: 0,
-        z: 0,
-      },
-
-      mixamorigRightHand: {
-        x: 0,
-        y: 0,
-        z: 0,
-      },
-    },
-
-    morphs: {},
-  },
+  DAY: [
+    p(1000, {
+      mixamorigRightArm: r(-0.3, 0.15),
+      mixamorigRightForeArm: r(-0.5, -0.2),
+      mixamorigRightHand: r(0, -0.25),
+    }),
+    p(1300, {
+      mixamorigRightArm: r(-0.2, 0.3),
+      mixamorigRightForeArm: r(-0.4, -0.25),
+      mixamorigRightHand: r(0, -0.45),
+    }),
+  ],
 };
 
-export function getPose(gloss: string): Pose | null {
-  return poseDictionary[gloss.toUpperCase()] ?? null;
+export function getPose(gloss: string): Pose[] {
+  return poseDictionary[gloss.toUpperCase()] ?? [];
 }
