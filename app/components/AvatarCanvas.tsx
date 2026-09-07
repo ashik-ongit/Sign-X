@@ -31,26 +31,26 @@ export default function AvatarCanvas({
     const container = containerRef.current;
     if (!container) return;
 
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+
     const scene = new THREE.Scene();
     scene.background = new THREE.Color(0x222222);
 
     const camera = new THREE.PerspectiveCamera(
-      45,
-      container.clientWidth / container.clientHeight,
+      35,
+      width / height,
       0.1,
-      5000
+      2000
     );
-
-    camera.position.set(0, 150, 300);
 
     const renderer = new THREE.WebGLRenderer({
       antialias: true,
     });
 
-    renderer.setSize(
-      container.clientWidth,
-      container.clientHeight
-    );
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setSize(width, height);
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
 
     container.appendChild(renderer.domElement);
 
@@ -60,6 +60,9 @@ export default function AvatarCanvas({
     );
 
     controls.enableDamping = true;
+    controls.enableZoom = true;
+    controls.enablePan = true;
+    controls.enableRotate = true;
 
     scene.add(
       new THREE.AmbientLight(0xffffff, 2)
@@ -72,8 +75,6 @@ export default function AvatarCanvas({
 
     dirLight.position.set(100, 200, 100);
     scene.add(dirLight);
-
-    scene.add(new THREE.GridHelper(500, 50));
 
     const loader = new GLTFLoader();
 
@@ -90,21 +91,58 @@ export default function AvatarCanvas({
 
         scene.add(avatar);
 
-        console.log("SignX avatar loaded");
+        // ---------------------------------------------
+        // CAMERA
+        // ---------------------------------------------
 
-        // --------------------------------------------------
-        // Cache rest rotations
-        // --------------------------------------------------
+        const box = new THREE.Box3().setFromObject(avatar);
+
+        const center = box.getCenter(
+          new THREE.Vector3()
+        );
+
+        const size = box.getSize(
+          new THREE.Vector3()
+        );
+
+        const maxDim = Math.max(
+          size.x,
+          size.y,
+          size.z
+        );
+
+        const fov =
+          camera.fov * (Math.PI / 180);
+
+        let cameraDistance =
+          Math.abs(
+            maxDim /
+              2 /
+              Math.tan(fov / 2)
+          );
+
+        cameraDistance *= 1.25;
+
+        camera.position.set(
+          center.x,
+          center.y,
+          center.z + cameraDistance
+        );
+
+        camera.lookAt(center);
+
+        controls.target.copy(center);
+        controls.update();
+
+        // ---------------------------------------------
+        // REST ROTATIONS
+        // ---------------------------------------------
 
         const restRotations =
           new Map<string, THREE.Quaternion>();
 
-        let totalBones = 0;
-
         avatar.traverse((object) => {
           if (!object.isBone) return;
-
-          totalBones++;
 
           restRotations.set(
             object.name,
@@ -113,38 +151,96 @@ export default function AvatarCanvas({
         });
 
         console.log(
-          "TOTAL BONES:",
-          totalBones
+          "SignX avatar loaded"
         );
 
-        // --------------------------------------------------
-        // Don't animate until we have gloss
-        // --------------------------------------------------
+        console.log(
+          "TOTAL BONES:",
+          restRotations.size
+        );
+
+        // ---------------------------------------------
+        // NEUTRAL STANDING POSE
+        // ---------------------------------------------
+
+        const neutral = (
+          name: string,
+          x: number
+        ) => {
+          const bone =
+            avatar.getObjectByName(name);
+
+          const rest =
+            restRotations.get(name);
+
+          if (!bone || !rest) return;
+
+          bone.quaternion.copy(
+            rest.clone().multiply(
+              new THREE.Quaternion().setFromEuler(
+                new THREE.Euler(
+                  x,
+                  0,
+                  0,
+                  "XYZ"
+                )
+              )
+            )
+          );
+        };
+
+        neutral(
+          "mixamorigLeftArm",
+          0.55
+        );
+
+        neutral(
+          "mixamorigLeftForeArm",
+          0.45
+        );
+
+        neutral(
+          "mixamorigRightArm",
+          0.55
+        );
+
+        neutral(
+          "mixamorigRightForeArm",
+          0.45
+        );
+
+        // ---------------------------------------------
+        // IDLE
+        // ---------------------------------------------
 
         if (glossSequence.length === 0) {
-          console.log(
-            "No gloss sequence yet."
-          );
-
           function idleRender() {
             if (cancelled) return;
 
             controls.update();
-            renderer.render(scene, camera);
+
+            renderer.render(
+              scene,
+              camera
+            );
 
             animationFrameId =
-              requestAnimationFrame(idleRender);
+              requestAnimationFrame(
+                idleRender
+              );
           }
 
           animationFrameId =
-            requestAnimationFrame(idleRender);
+            requestAnimationFrame(
+              idleRender
+            );
 
           return;
         }
 
-        // --------------------------------------------------
-        // Request animation data
-        // --------------------------------------------------
+        // ---------------------------------------------
+        // REQUEST ANIMATION
+        // ---------------------------------------------
 
         try {
           const response = await fetch(
@@ -152,16 +248,19 @@ export default function AvatarCanvas({
             {
               method: "POST",
               headers: {
-                "Content-Type": "application/json",
+                "Content-Type":
+                  "application/json",
               },
               body: JSON.stringify({
                 raw_text: "",
-                gloss_sequence: glossSequence,
+                gloss_sequence:
+                  glossSequence,
               }),
             }
           );
 
-          const data = await response.json();
+          const data =
+            await response.json();
 
           console.log(
             "Animation API response:",
@@ -176,53 +275,39 @@ export default function AvatarCanvas({
               "Animation API failed:",
               data
             );
+
             return;
           }
 
           const frames: Frame[] =
-            data.animation_data?.frames ?? [];
+            data.animation_data?.frames ??
+            [];
 
           console.log(
             "Animation frames:",
             frames
           );
 
-          if (frames.length === 0) {
+          if (!frames.length) {
             console.error(
-              "Animation API returned no frames:",
-              data
+              "No animation frames"
             );
+
             return;
           }
 
-          // ------------------------------------------------
-          // Animation
-          // ------------------------------------------------
+          // ---------------------------------------------
+          // FRAME HELPERS
+          // ---------------------------------------------
 
-          let frameIndex = 0;
-          let frameStart = performance.now();
-
-          function applyFrame(frame: Frame) {
-            avatar.traverse((object) => {
-              if (!object.isBone) return;
-
-              const rest =
-                restRotations.get(object.name);
-
-              if (!rest) return;
-
-              const rotation =
-                frame.boneRotations?.[
-                  object.name
-                ];
-
+          const makeQuaternion =
+            (rotation?: Rotation) => {
               if (!rotation) {
-                object.quaternion.copy(rest);
-                return;
+                return new THREE.Quaternion();
               }
 
-              const delta =
-                new THREE.Quaternion().setFromEuler(
+              return new THREE.Quaternion()
+                .setFromEuler(
                   new THREE.Euler(
                     rotation.x,
                     rotation.y,
@@ -230,71 +315,182 @@ export default function AvatarCanvas({
                     "XYZ"
                   )
                 );
+            };
 
-              object.quaternion
-                .copy(rest)
-                .multiply(delta);
-            });
+          // ---------------------------------------------
+          // APPLY INTERPOLATED FRAME
+          // ---------------------------------------------
 
-            avatar.traverse((object) => {
-              const mesh = object as THREE.Mesh;
+          function applyInterpolatedFrame(
+            from: Frame,
+            to: Frame,
+            alpha: number
+          ) {
+            const t =
+              THREE.MathUtils.smoothstep(
+                alpha,
+                0,
+                1
+              );
 
-              if (
-                !mesh.isMesh ||
-                !mesh.morphTargetDictionary ||
-                !mesh.morphTargetInfluences
-              ) {
-                return;
-              }
+            avatar.traverse(
+              (object) => {
+                if (!object.isBone) return;
 
-              for (const [
-                name,
-                value,
-              ] of Object.entries(
-                frame.morphTargetInfluences ?? {}
-              )) {
-                const index =
-                  mesh.morphTargetDictionary[
-                    name
+                const rest =
+                  restRotations.get(
+                    object.name
+                  );
+
+                if (!rest) return;
+
+                const fromRotation =
+                  from.boneRotations?.[
+                    object.name
                   ];
 
-                if (index !== undefined) {
-                  mesh.morphTargetInfluences[
-                    index
-                  ] = value;
+                const toRotation =
+                  to.boneRotations?.[
+                    object.name
+                  ];
+
+                if (!fromRotation && !toRotation) {
+                  return;
                 }
+
+                const fromQ =
+                  rest.clone().multiply(
+                    makeQuaternion(
+                      fromRotation
+                    )
+                  );
+
+                const toQ =
+                  rest.clone().multiply(
+                    makeQuaternion(
+                      toRotation ??
+                        fromRotation
+                    )
+                  );
+
+                object.quaternion
+                  .copy(fromQ)
+                  .slerp(toQ, t);
               }
-            });
+            );
+
+            // ---------------------------------------------
+            // MORPH TARGETS
+            // ---------------------------------------------
+
+            avatar.traverse(
+              (object) => {
+                const mesh =
+                  object as THREE.Mesh;
+
+                if (
+                  !mesh.isMesh ||
+                  !mesh.morphTargetDictionary ||
+                  !mesh.morphTargetInfluences
+                ) {
+                  return;
+                }
+
+                const names =
+                  new Set([
+                    ...Object.keys(
+                      from.morphTargetInfluences ??
+                        {}
+                    ),
+                    ...Object.keys(
+                      to.morphTargetInfluences ??
+                        {}
+                    ),
+                  ]);
+
+                names.forEach(
+                  (name) => {
+                    const index =
+                      mesh
+                        .morphTargetDictionary?.[
+                        name
+                      ];
+
+                    if (
+                      index === undefined
+                    ) {
+                      return;
+                    }
+
+                    const a =
+                      from
+                        .morphTargetInfluences?.[
+                        name
+                      ] ?? 0;
+
+                    const b =
+                      to
+                        .morphTargetInfluences?.[
+                        name
+                      ] ?? 0;
+
+                    mesh.morphTargetInfluences[
+                      index
+                    ] =
+                      THREE.MathUtils.lerp(
+                        a,
+                        b,
+                        t
+                      );
+                  }
+                );
+              }
+            );
           }
 
-          function animate(now: number) {
+          // ---------------------------------------------
+          // ANIMATION
+          // ---------------------------------------------
+
+          let frameIndex = 0;
+
+          let frameStart =
+            performance.now();
+
+          function animate(
+            now: number
+          ) {
             if (cancelled) return;
 
-            const frame =
+            const current =
               frames[frameIndex];
 
-            if (!frame) {
-              console.error(
-                "Invalid animation frame:",
-                frameIndex,
-                frames
+            if (!current) return;
+
+            const next =
+              frames[
+                Math.min(
+                  frameIndex + 1,
+                  frames.length - 1
+                )
+              ];
+
+            const elapsed =
+              now - frameStart;
+
+            const duration =
+              current.duration;
+
+            const alpha =
+              Math.min(
+                elapsed / duration,
+                1
               );
-              return;
-            }
 
-            if (
-              now - frameStart >=
-              frame.duration
-            ) {
-              frameIndex =
-                (frameIndex + 1) %
-                frames.length;
-
-              frameStart = now;
-            }
-
-            applyFrame(
-              frames[frameIndex]
+            applyInterpolatedFrame(
+              current,
+              next,
+              alpha
             );
 
             controls.update();
@@ -303,6 +499,39 @@ export default function AvatarCanvas({
               scene,
               camera
             );
+
+            // Move to next frame
+            if (
+              elapsed >= duration
+            ) {
+              if (
+                frameIndex <
+                frames.length - 1
+              ) {
+                frameIndex++;
+
+                frameStart = now;
+              } else {
+                // Finished — hold final pose
+
+                applyInterpolatedFrame(
+                  frames[
+                    frames.length - 1
+                  ],
+                  frames[
+                    frames.length - 1
+                  ],
+                  1
+                );
+
+                renderer.render(
+                  scene,
+                  camera
+                );
+
+                return;
+              }
+            }
 
             animationFrameId =
               requestAnimationFrame(
@@ -314,6 +543,7 @@ export default function AvatarCanvas({
             requestAnimationFrame(
               animate
             );
+
         } catch (error) {
           console.error(
             "Animation request failed:",
@@ -332,26 +562,22 @@ export default function AvatarCanvas({
       }
     );
 
-    // ------------------------------------------------------
-    // Resize
-    // ------------------------------------------------------
+    // ---------------------------------------------
+    // RESIZE
+    // ---------------------------------------------
 
     const handleResize = () => {
-      const width =
+      const w =
         container.clientWidth;
 
-      const height =
+      const h =
         container.clientHeight;
 
-      camera.aspect =
-        width / height;
+      camera.aspect = w / h;
 
       camera.updateProjectionMatrix();
 
-      renderer.setSize(
-        width,
-        height
-      );
+      renderer.setSize(w, h);
     };
 
     window.addEventListener(
@@ -359,9 +585,9 @@ export default function AvatarCanvas({
       handleResize
     );
 
-    // ------------------------------------------------------
-    // Cleanup
-    // ------------------------------------------------------
+    // ---------------------------------------------
+    // CLEANUP
+    // ---------------------------------------------
 
     return () => {
       cancelled = true;
